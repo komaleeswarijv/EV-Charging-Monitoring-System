@@ -32,7 +32,7 @@ The project aims to monitor EV charging conditions, analyse driver behaviour and
 - Wi-Fi disconnection handling.
 
 ## Simulation
-Wokwi simulation link: [Add your Wokwi project URL here]
+Wokwi simulation link: https://wokwi.com/projects/481502054164321281
 
 ## Note
 This is a virtual prototype using simulated sensors. Physical hardware implementation is not included in the current stage.
