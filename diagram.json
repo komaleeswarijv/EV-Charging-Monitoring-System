@@ -13,7 +13,16 @@
     },
     { "type": "wokwi-potentiometer", "id": "pot1", "top": 238.7, "left": -125, "attrs": {} },
     { "type": "wokwi-potentiometer", "id": "pot2", "top": 123.5, "left": -125, "attrs": {} },
-    { "type": "wokwi-dht22", "id": "dht1", "top": 125.1, "left": 225, "attrs": {} }
+    { "type": "wokwi-dht22", "id": "dht1", "top": 125.1, "left": 225, "attrs": {} },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": 96,
+      "left": 297.6,
+      "rotate": 180,
+      "attrs": { "volume": "0.1" }
+    },
+    { "type": "wokwi-slide-switch", "id": "sw1", "top": 215.6, "left": 319.9, "attrs": {} }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
@@ -30,7 +39,11 @@
     [ "pot1:GND", "esp:GND.1", "black", [ "v28.8", "h124.8", "v-76.8" ] ],
     [ "pot2:GND", "esp:GND.1", "black", [ "v38.4", "h124.8", "v28.8" ] ],
     [ "lcd1:GND", "esp:GND.1", "black", [ "h-19.2", "v124.8", "h105.6", "v182.4" ] ],
-    [ "esp:GND.3", "dht1:GND", "black", [ "h76.8", "v67.2", "h48" ] ]
+    [ "esp:GND.3", "dht1:GND", "black", [ "h76.8", "v67.2", "h48" ] ],
+    [ "esp:19", "bz1:2", "red", [ "h67.2", "v-105.6", "h86.4" ] ],
+    [ "esp:GND.3", "bz1:1", "black", [ "h57.6", "v-105.6", "h144" ] ],
+    [ "sw1:2", "esp:18", "green", [ "v48", "h-172.7", "v-86.4" ] ],
+    [ "esp:GND.3", "sw1:3", "black", [ "h57.6", "v115.2", "h144" ] ]
   ],
   "dependencies": {}
 }
