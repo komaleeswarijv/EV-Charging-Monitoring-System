@@ -1,38 +1,49 @@
 # EV Charging and Vehicle Monitoring System
 
 ## Project Overview
-An ESP32-based EV Charging and Vehicle Monitoring System developed using Wokwi simulation.
 
-The project aims to monitor EV charging conditions, analyse driver behaviour and detect unauthorised vehicle movement.
+An ESP32-based EV Charging and Vehicle Monitoring System developed and tested using the Wokwi simulator, with Blynk IoT dashboard integration.
 
-## Implemented Features – 25%
+The project monitors simulated EV charging parameters, identifies abnormal charging conditions, provides driver load-anomaly indications, and detects simulated unauthorised vehicle movement through a security mechanism.
+
+## Implemented Features
 
 - ESP32 microcontroller simulation using Wokwi.
 - Simulated voltage and current monitoring using potentiometers.
-- Temperature monitoring using DHT22.
-- LCD display for charging parameters.
-- Overcurrent detection and charging status indication.
+- Temperature monitoring using a DHT22 sensor.
+- Real-time charging parameter display using a 16x2 I2C LCD.
+- Overcurrent detection and alert.
+- Low-voltage and slow-charging detection.
+- Charging fault detection.
+- Simulated driver load-anomaly detection based on sudden current changes.
+- Anti-theft monitoring using a security switch.
+- Buzzer alerts for overcurrent, theft, and low-voltage conditions.
 - Serial Monitor output for real-time monitoring.
+- Blynk IoT integration for remote monitoring of voltage, current, temperature, charging status, and security status.
 
 ## Technologies Used
+
 - ESP32
 - C/C++
 - Wokwi Simulator
+- Blynk IoT
 - DHT22
 - I2C LCD
-- Wi-Fi (planned integration)
+- Wi-Fi
 
 ## Project Status
-**Current completion: 25%**
 
-## Future Enhancements
-- Driver behaviour analysis.
-- Theft detection and buzzer alerts.
-- Blinker IoT dashboard integration.
-- Wi-Fi disconnection handling.
+The EV Charging and Vehicle Monitoring System has been implemented and tested successfully using Wokwi simulation and Blynk IoT dashboard integration.
 
 ## Simulation
-Wokwi simulation link: https://wokwi.com/projects/481502054164321281
+
+**Wokwi Simulation:**  
+https://wokwi.com/projects/481502054164321281
+
+## Dashboard
+
+A screenshot of the Blynk IoT dashboard is included in the project repository.
 
 ## Note
-This is a virtual prototype using simulated sensors. Physical hardware implementation is not included in the current stage.
+
+This project is a virtual prototype developed using simulated sensors and Wokwi. Voltage, current, temperature, and vehicle conditions are simulated values. Physical EV charger and vehicle hardware integration has not been implemented.
