@@ -1,4 +1,12 @@
 
+#define BLYNK_TEMPLATE_ID "TMPL3mV9B5mEe"
+#define BLYNK_TEMPLATE_NAME "EV Charging Monitoring System"
+#define BLYNK_AUTH_TOKEN "YOUR_BLYNK_AUTH_TOKEN"
+
+#define BLYNK_PRINT Serial
+
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <DHT.h>
@@ -6,16 +14,16 @@
 // Pin definitions
 #define DHT_PIN 15
 #define DHT_TYPE DHT22
-
 #define VOLTAGE_PIN 34
 #define CURRENT_PIN 35
-
 #define BUZZER_PIN 19
 #define SECURITY_PIN 18
 
 // LCD and DHT objects
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 DHT dht(DHT_PIN, DHT_TYPE);
+
+BlynkTimer timer;
 
 // Monitoring thresholds
 const float MAX_CURRENT = 10.0;
@@ -26,51 +34,25 @@ const float DRIVER_CHANGE_THRESHOLD = 2.5;
 float previousCurrent = 0;
 bool firstReading = true;
 
-void setup() {
+void monitorEV() {
 
-  Serial.begin(115200);
-
-  Wire.begin(21, 22);
-
-  pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(SECURITY_PIN, INPUT_PULLUP);
-
-  lcd.init();
-  lcd.backlight();
-
-  dht.begin();
-
-  lcd.setCursor(0, 0);
-  lcd.print("EV Monitoring");
-
-  lcd.setCursor(0, 1);
-  lcd.print("System Starting");
-
-  delay(2000);
-  lcd.clear();
-}
-
-void loop() {
-
-  // 1. Read simulated sensor values
+  // 1. Read sensors
   int voltageRaw = analogRead(VOLTAGE_PIN);
   int currentRaw = analogRead(CURRENT_PIN);
 
   float voltage = (voltageRaw / 4095.0) * 60.0;
   float current = (currentRaw / 4095.0) * 15.0;
-
   float temperature = dht.readTemperature();
 
   bool tempValid = !isnan(temperature);
 
   // 2. Security monitoring
-  bool securityArmed =
-    (digitalRead(SECURITY_PIN) == LOW);
+  bool securityArmed = (digitalRead(SECURITY_PIN) == LOW);
 
   bool theftAlert =
     securityArmed && current > THEFT_THRESHOLD;
 
-  // 3. Charging condition monitoring
+  // 3. Charging monitoring
   bool overcurrent = current > MAX_CURRENT;
 
   bool chargingFault =
@@ -103,9 +85,25 @@ void loop() {
   previousCurrent = current;
   firstReading = false;
 
-  // 5. Buzzer alert system
-  // No buzzer for normal potentiometer adjustments
+  // 5. Determine charging status
+  String chargingStatus;
 
+  if (theftAlert)
+    chargingStatus = "THEFT ALERT";
+  else if (overcurrent)
+    chargingStatus = "OVER CURRENT";
+  else if (chargingFault)
+    chargingStatus = "NOT CHARGING";
+  else if (lowVoltage)
+    chargingStatus = "LOW VOLTAGE";
+  else if (slowCharging)
+    chargingStatus = "SLOW CHARGING";
+  else if (chargingNormal)
+    chargingStatus = "NORMAL CHARGING";
+  else
+    chargingStatus = "CHECK CHARGING";
+
+  // 6. Buzzer
   if (theftAlert || overcurrent) {
     tone(BUZZER_PIN, 2000);
   }
@@ -116,7 +114,7 @@ void loop() {
     noTone(BUZZER_PIN);
   }
 
-  // 6. LCD display - voltage and current
+  // 7. LCD display
   lcd.setCursor(0, 0);
   lcd.print("V:");
   lcd.print(voltage, 1);
@@ -124,35 +122,12 @@ void loop() {
   lcd.print(current, 1);
   lcd.print("A ");
 
-  // Clear second row
   lcd.setCursor(0, 1);
   lcd.print("                ");
   lcd.setCursor(0, 1);
+  lcd.print(chargingStatus);
 
-  // Charging status display
-  if (theftAlert) {
-    lcd.print("THEFT ALERT!");
-  }
-  else if (overcurrent) {
-    lcd.print("OVER CURRENT!");
-  }
-  else if (chargingFault) {
-    lcd.print("NOT CHARGING");
-  }
-  else if (lowVoltage) {
-    lcd.print("LOW VOLTAGE!");
-  }
-  else if (slowCharging) {
-    lcd.print("SLOW CHARGING");
-  }
-  else if (chargingNormal) {
-    lcd.print("NORMAL CHARGING");
-  }
-  else {
-    lcd.print("CHECK CHARGING");
-  }
-
-  // 7. Serial Monitor output
+  // 8. Serial Monitor
   Serial.println("\n----- EV MONITOR -----");
 
   Serial.print("Voltage: ");
@@ -176,25 +151,7 @@ void loop() {
   Serial.println(securityArmed ? "ARMED" : "DISARMED");
 
   Serial.print("Charging Status: ");
-
-  if (overcurrent) {
-    Serial.println("OVER CURRENT");
-  }
-  else if (chargingFault) {
-    Serial.println("NOT CHARGING");
-  }
-  else if (lowVoltage) {
-    Serial.println("LOW VOLTAGE");
-  }
-  else if (slowCharging) {
-    Serial.println("SLOW CHARGING");
-  }
-  else if (chargingNormal) {
-    Serial.println("NORMAL CHARGING");
-  }
-  else {
-    Serial.println("CHECK CHARGING");
-  }
+  Serial.println(chargingStatus);
 
   Serial.print("Driver Behaviour: ");
   Serial.println(driverAlert ? "LOAD ANOMALY" : "NORMAL");
@@ -202,5 +159,83 @@ void loop() {
   Serial.print("Anti-Theft: ");
   Serial.println(theftAlert ? "UNAUTHORIZED LOAD" : "SAFE");
 
+  // 9. Send data to Blynk
+  Blynk.virtualWrite(V0, voltage);
+  Blynk.virtualWrite(V1, current);
+
+  if (tempValid) {
+    Blynk.virtualWrite(V2, temperature);
+  }
+
+  Blynk.virtualWrite(V3, chargingStatus);
+
+  String securityStatus;
+
+  if (theftAlert)
+    securityStatus = "THEFT ALERT";
+  else if (securityArmed)
+    securityStatus = "ARMED";
+  else
+    securityStatus = "DISARMED";
+
+  Blynk.virtualWrite(V4, securityStatus);
+}
+
+void setup() {
+
+  Serial.begin(115200);
+
+  Wire.begin(21, 22);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(SECURITY_PIN, INPUT_PULLUP);
+
+  lcd.init();
+  lcd.backlight();
+
+  dht.begin();
+
+  lcd.setCursor(0, 0);
+  lcd.print("EV Monitoring");
+  lcd.setCursor(0, 1);
+  lcd.print("System Starting");
+
   delay(2000);
+  lcd.clear();
+
+  // Connect to Blynk using Wokwi WiFi
+  Serial.println("Connecting to Blynk...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin("Wokwi-GUEST", "", 6);
+
+  Serial.print("Connecting to WiFi");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(250);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWiFi Connected!");
+  Serial.println(WiFi.localIP());
+
+  Blynk.config(BLYNK_AUTH_TOKEN);
+
+  if (Blynk.connect(10000)) {
+    Serial.println("Blynk Connected!");
+  } else {
+    Serial.println("Blynk Connection Failed!");
+  }
+
+  Serial.println("Blynk Connected!");
+
+  // Monitor and upload every 2 seconds
+  timer.setInterval(2000L, monitorEV);
+}
+
+void loop() {
+
+  Blynk.run();
+  timer.run();
+
 }
