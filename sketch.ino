@@ -10,17 +10,30 @@
 #define VOLTAGE_PIN 34
 #define CURRENT_PIN 35
 
+#define BUZZER_PIN 19
+#define SECURITY_PIN 18
+
 // LCD and DHT objects
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 DHT dht(DHT_PIN, DHT_TYPE);
 
-// Monitoring threshold
+// Monitoring thresholds
 const float MAX_CURRENT = 10.0;
+const float THEFT_THRESHOLD = 1.0;
+const float DRIVER_CHANGE_THRESHOLD = 2.5;
+
+// Driver monitoring
+float previousCurrent = 0;
+bool firstReading = true;
 
 void setup() {
+
   Serial.begin(115200);
 
   Wire.begin(21, 22);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(SECURITY_PIN, INPUT_PULLUP);
 
   lcd.init();
   lcd.backlight();
@@ -29,6 +42,7 @@ void setup() {
 
   lcd.setCursor(0, 0);
   lcd.print("EV Monitoring");
+
   lcd.setCursor(0, 1);
   lcd.print("System Starting");
 
@@ -37,7 +51,8 @@ void setup() {
 }
 
 void loop() {
-  // Read simulated sensor values
+
+  // 1. Read simulated sensor values
   int voltageRaw = analogRead(VOLTAGE_PIN);
   int currentRaw = analogRead(CURRENT_PIN);
 
@@ -46,37 +61,100 @@ void loop() {
 
   float temperature = dht.readTemperature();
 
-  // Handle invalid temperature readings
-  if (isnan(temperature)) {
-    Serial.println("DHT22 reading error");
-    delay(2000);
-    return;
-  }
+  bool tempValid = !isnan(temperature);
 
-  // Determine charging status
+  // 2. Security monitoring
+  bool securityArmed =
+    (digitalRead(SECURITY_PIN) == LOW);
+
+  bool theftAlert =
+    securityArmed && current > THEFT_THRESHOLD;
+
+  // 3. Charging condition monitoring
   bool overcurrent = current > MAX_CURRENT;
 
-  // Display on LCD
+  bool chargingFault =
+    voltage <= 5.0 || current <= 0.2;
+
+  bool lowVoltage =
+    voltage > 5.0 && voltage < 40.0;
+
+  bool slowCharging =
+    voltage >= 40.0 &&
+    voltage <= 55.0 &&
+    current > 0.2 &&
+    current < 2.0;
+
+  bool chargingNormal =
+    voltage >= 40.0 &&
+    voltage <= 55.0 &&
+    current >= 2.0 &&
+    current <= MAX_CURRENT;
+
+  // 4. Driver behaviour monitoring
+  bool driverAlert = false;
+
+  if (!firstReading) {
+    driverAlert =
+      abs(current - previousCurrent) >
+      DRIVER_CHANGE_THRESHOLD;
+  }
+
+  previousCurrent = current;
+  firstReading = false;
+
+  // 5. Buzzer alert system
+  // No buzzer for normal potentiometer adjustments
+
+  if (theftAlert || overcurrent) {
+    tone(BUZZER_PIN, 2000);
+  }
+  else if (lowVoltage) {
+    tone(BUZZER_PIN, 1500, 300);
+  }
+  else {
+    noTone(BUZZER_PIN);
+  }
+
+  // 6. LCD display - voltage and current
   lcd.setCursor(0, 0);
   lcd.print("V:");
   lcd.print(voltage, 1);
   lcd.print(" I:");
   lcd.print(current, 1);
-  lcd.print("A  ");
+  lcd.print("A ");
 
+  // Clear second row
+  lcd.setCursor(0, 1);
+  lcd.print("                ");
   lcd.setCursor(0, 1);
 
-  if (overcurrent) {
-    lcd.print("OVER CURRENT!   ");
-  } else {
-    lcd.print("Temp:");
-    lcd.print(temperature, 1);
-    lcd.print((char)223);
-    lcd.print("C       ");
+  // Charging status display
+  if (theftAlert) {
+    lcd.print("THEFT ALERT!");
+  }
+  else if (overcurrent) {
+    lcd.print("OVER CURRENT!");
+  }
+  else if (chargingFault) {
+    lcd.print("NOT CHARGING");
+  }
+  else if (lowVoltage) {
+    lcd.print("LOW VOLTAGE!");
+  }
+  else if (slowCharging) {
+    lcd.print("SLOW CHARGING");
+  }
+  else if (chargingNormal) {
+    lcd.print("NORMAL CHARGING");
+  }
+  else {
+    lcd.print("CHECK CHARGING");
   }
 
-  // Serial Monitor output
-  Serial.println("----- EV MONITOR -----");
+  // 7. Serial Monitor output
+  Serial.println("\n----- EV MONITOR -----");
+
   Serial.print("Voltage: ");
   Serial.print(voltage);
   Serial.println(" V");
@@ -85,12 +163,44 @@ void loop() {
   Serial.print(current);
   Serial.println(" A");
 
-  Serial.print("Temperature: ");
-  Serial.print(temperature);
-  Serial.println(" C");
+  if (tempValid) {
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.println(" C");
+  }
+  else {
+    Serial.println("Temperature: Sensor Error");
+  }
+
+  Serial.print("Security: ");
+  Serial.println(securityArmed ? "ARMED" : "DISARMED");
 
   Serial.print("Charging Status: ");
-  Serial.println(overcurrent ? "ABNORMAL" : "NORMAL");
+
+  if (overcurrent) {
+    Serial.println("OVER CURRENT");
+  }
+  else if (chargingFault) {
+    Serial.println("NOT CHARGING");
+  }
+  else if (lowVoltage) {
+    Serial.println("LOW VOLTAGE");
+  }
+  else if (slowCharging) {
+    Serial.println("SLOW CHARGING");
+  }
+  else if (chargingNormal) {
+    Serial.println("NORMAL CHARGING");
+  }
+  else {
+    Serial.println("CHECK CHARGING");
+  }
+
+  Serial.print("Driver Behaviour: ");
+  Serial.println(driverAlert ? "LOAD ANOMALY" : "NORMAL");
+
+  Serial.print("Anti-Theft: ");
+  Serial.println(theftAlert ? "UNAUTHORIZED LOAD" : "SAFE");
 
   delay(2000);
 }
